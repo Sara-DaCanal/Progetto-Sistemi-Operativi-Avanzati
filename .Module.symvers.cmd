@@ -1,0 +1,1 @@
+cmd_/home/saradacanal/Scrivania/progetto_soa/Progetto-Sistemi-Operativi-Avanzati/Module.symvers :=  sed 's/ko$$/o/'  /home/saradacanal/Scrivania/progetto_soa/Progetto-Sistemi-Operativi-Avanzati/modules.order | scripts/mod/modpost  -a   -N -o /home/saradacanal/Scrivania/progetto_soa/Progetto-Sistemi-Operativi-Avanzati/Module.symvers -e -i Module.symvers -T - 

@@ -1,0 +1,1 @@
+cmd_/home/saradacanal/Scrivania/progetto_soa/Progetto-Sistemi-Operativi-Avanzati/modules.order := {   echo /home/saradacanal/Scrivania/progetto_soa/Progetto-Sistemi-Operativi-Avanzati/user_message_fs.ko; :; } > /home/saradacanal/Scrivania/progetto_soa/Progetto-Sistemi-Operativi-Avanzati/modules.order
