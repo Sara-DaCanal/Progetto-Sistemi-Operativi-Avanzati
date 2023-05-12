@@ -1,3 +1,0 @@
-cmd_/home/saradacanal/Scrivania/progetto_soa/Progetto-Sistemi-Operativi-Avanzati/user_message_fs.o := ld -m elf_x86_64 -z noexecstack --no-warn-rwx-segments   -r -o /home/saradacanal/Scrivania/progetto_soa/Progetto-Sistemi-Operativi-Avanzati/user_message_fs.o @/home/saradacanal/Scrivania/progetto_soa/Progetto-Sistemi-Operativi-Avanzati/user_message_fs.mod  ; ./tools/objtool/objtool --hacks=jump_label --hacks=noinstr --ibt --orc --retpoline --rethunk --sls --static-call --uaccess  --link  --module /home/saradacanal/Scrivania/progetto_soa/Progetto-Sistemi-Operativi-Avanzati/user_message_fs.o
-
-/home/saradacanal/Scrivania/progetto_soa/Progetto-Sistemi-Operativi-Avanzati/user_message_fs.o: $(wildcard ./tools/objtool/objtool)

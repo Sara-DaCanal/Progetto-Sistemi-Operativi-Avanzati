@@ -7,11 +7,9 @@
 #include "user_messages_fs.h"
 
 
-
 static struct super_operations umsg_fs_super_ops = {};
 static struct dentry_operations umsg_fs_dentry_ops = {};
 static struct inode_operations umsg_fs_inode_ops = {};
-static struct file_operations umsg_fs_ops = {};
 
 int umsg_fs_fill_super(struct super_block *sb, void *data, int silent){
 
@@ -20,6 +18,7 @@ int umsg_fs_fill_super(struct super_block *sb, void *data, int silent){
     struct umsg_fs_sb *sb_dev;
     struct timespec64 curr_time;
     uint64_t magic;
+    uint64_t nblocks;
 
     sb->s_magic = MAGIC;
 
@@ -30,9 +29,13 @@ int umsg_fs_fill_super(struct super_block *sb, void *data, int silent){
     }
     sb_dev = (struct umsg_fs_sb *)bh->b_data;
     magic = sb_dev->magic;
+    nblocks = sb_dev->nblocks;
     brelse(bh);
 
     if(magic != sb->s_magic){
+        return -EBADF;
+    }
+    if(nblocks > NBLOCKS){
         return -EBADF;
     }
 
@@ -46,12 +49,12 @@ int umsg_fs_fill_super(struct super_block *sb, void *data, int silent){
     }
 
     root_inode->i_ino = UMSG_FS_ROOT_INODE_NUM;
-    inode_init_owner(NULL, root_inode, NULL, S_IFCHR);
+    inode_init_owner(&init_user_ns, root_inode, NULL, S_IFDIR); //flag per block device
     root_inode->i_sb = sb;
     root_inode->i_op = &umsg_fs_inode_ops; //operazioni custom per inode
     root_inode->i_fop = &umsg_fs_ops; //driver con ops del file
 
-    root_inode->i_mode = S_IFCHR | S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IXUSR | S_IXGRP | S_IXOTH;
+    root_inode->i_mode = S_IFDIR | S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IXUSR | S_IXGRP | S_IXOTH;
 
     ktime_get_real_ts64(&curr_time);
     root_inode->i_atime = curr_time;
@@ -67,6 +70,7 @@ int umsg_fs_fill_super(struct super_block *sb, void *data, int silent){
     sb->s_root->d_op = &umsg_fs_dentry_ops; //operazioni per la dentry
 
     unlock_new_inode(root_inode);
+    printk("Everithing is okay\n");
     return 0;
 }
 
