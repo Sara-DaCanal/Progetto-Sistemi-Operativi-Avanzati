@@ -4,11 +4,13 @@ EXTRA_CFLAGS:= -D NBLOCKS=10
 
 all:
 	gcc create_umsg_fs.c -o create_umsg_fs
+	gcc my_client.c -o my_client
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
 
 clean:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
 	rm create_umsg_fs
+	rm my_client
 	rm -r umsg_dir
 
 insmod:

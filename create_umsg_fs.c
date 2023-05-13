@@ -15,7 +15,7 @@ int main(int argc, char *argv[]){
     int i;
     struct umsg_fs_blockdata block_data;
     struct umsg_fs_sb sb;
-    struct umsg_fs_file_inode inode;
+    struct umsg_fs_inode inode;
     int ret;
 
     //check args
@@ -46,8 +46,9 @@ int main(int argc, char *argv[]){
 
     printf("Superblock successfully written\n");
 
-    inode.file_size = 5*nblocks; //cambiare è una prova
+    inode.file_size = strlen("ciao")*nblocks; //cambiare è una prova
     inode.inode_num = UMSG_FS_FILE_INODE_NUM;
+    inode.nblocks = nblocks;
 
     ret = write(fd, (char *)&inode, sizeof(inode));
       if (ret !=UMSG_BLOCK_SIZE){
@@ -60,7 +61,7 @@ int main(int argc, char *argv[]){
     for (i = 2; i < nblocks; i++){
         block_data.valid = true;
         block_data.id=i;
-        block_data.data_lenght = 0;
+        block_data.data_lenght = strlen("ciao");
         strcpy(block_data.data, "ciao");
         ret = write(fd, (char *)&block_data, sizeof(block_data));
         if (ret != UMSG_BLOCK_SIZE){
