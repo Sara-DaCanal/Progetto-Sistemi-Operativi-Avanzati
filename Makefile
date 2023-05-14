@@ -20,8 +20,8 @@ rmmod:
 	rmmod user_message_fs
 
 format:
-	dd bs=4096 count=10 if=/dev/zero of=image
-	./create_umsg_fs image 10
+	dd bs=4096 count=10 if=/dev/zero of=image1
+	./create_umsg_fs image1 10
 	mkdir umsg_dir
 
 mount-fs:

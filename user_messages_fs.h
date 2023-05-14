@@ -33,11 +33,17 @@
     };
 
     //struct per ogni blocco
-    struct __attribute__((packed)) umsg_fs_blockdata{
+    struct __attribute__((packed)) umsg_fs_metadata{
         bool valid;
         uint64_t data_lenght;
+        uint64_t counter;
+        uint64_t logic_clock;
         int id;
-        char data[4096-(sizeof(bool)+sizeof(uint64_t)+sizeof(int))];
+    };
+
+    struct __attribute__((packed)) umsg_fs_blockdata{
+        struct umsg_fs_metadata md;
+        char data[4096 - sizeof(struct umsg_fs_metadata)];
     };
 
     extern const struct file_operations umsg_fs_ops;

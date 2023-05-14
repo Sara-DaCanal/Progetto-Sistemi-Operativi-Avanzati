@@ -59,9 +59,10 @@ int main(int argc, char *argv[]){
 
     //write some data
     for (i = 2; i < nblocks; i++){
-        block_data.valid = true;
-        block_data.id=i;
-        block_data.data_lenght = strlen("ciao");
+        block_data.md.valid = true;
+        block_data.md.id=i;
+        block_data.md.logic_clock = i-1;
+        block_data.md.data_lenght = strlen("ciao");
         strcpy(block_data.data, "ciao");
         ret = write(fd, (char *)&block_data, sizeof(block_data));
         if (ret != UMSG_BLOCK_SIZE){
