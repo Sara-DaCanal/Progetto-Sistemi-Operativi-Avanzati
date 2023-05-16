@@ -1,6 +1,9 @@
 obj-m += user_message_fs.o
-user_message_fs-objs += user_message_fs_create.o umsg_file.o
+user_message_fs-objs += user_message_fs_create.o umsg_file.o syscall_table_searcher.o umsg_block.o
 EXTRA_CFLAGS:= -D NBLOCKS=10
+
+A = $(shell cat /sys/module/the_usctm/parameters/sys_call_table_address)
+B = $(shell cat /sys/module/the_usctm/parameters/free_entries)
 
 all:
 	gcc create_umsg_fs.c -o create_umsg_fs
@@ -14,14 +17,14 @@ clean:
 	rm -r umsg_dir
 
 insmod:
-	insmod user_message_fs.ko
+	insmod user_message_fs.ko sys_call_table_address=$(A) free_entries=$(B)
 
 rmmod:
 	rmmod user_message_fs
 
 format:
-	dd bs=4096 count=10 if=/dev/zero of=image1
-	./create_umsg_fs image1 10
+	dd bs=4096 count=10 if=/dev/zero of=image
+	./create_umsg_fs image 10
 	mkdir umsg_dir
 
 mount-fs:

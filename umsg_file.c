@@ -9,13 +9,13 @@
 ssize_t umsg_fs_read(struct file * filp, char __user * buf, size_t len, loff_t * off){
     struct buffer_head *bh = NULL;
     struct umsg_fs_blockdata *my_data;
-    struct umsg_fs_metadata *md;
+    struct umsg_fs_info *md;
+    struct umsg_fs_block_info *blk;
     struct super_block *my_sb;
     struct umsg_fs_inode *my_inode;
     char *my_file;
     int copied;
     int ret;
-    int i;
     bool zero;
     size_t effective_len;
     uint64_t max_clock;
@@ -28,11 +28,9 @@ ssize_t umsg_fs_read(struct file * filp, char __user * buf, size_t len, loff_t *
     my_sb = filp->f_path.dentry->d_inode->i_sb;
     printk("Superblock successfully read\n");
 
-    md = (struct umsg_fs_metadata *)my_sb->s_fs_info;
+    md = (struct umsg_fs_info *)my_sb->s_fs_info;
     my_inode = filp->f_inode->i_private;
-    
-        printk("len: %ld\n", len);
-    //controllare se l'offset è NULL
+
     if(len > my_inode->file_size)
          effective_len = my_inode->file_size;
     else
@@ -47,30 +45,35 @@ ssize_t umsg_fs_read(struct file * filp, char __user * buf, size_t len, loff_t *
 
 
     copied = 0; //lunghezza di byte copiati sul file
-    for (i = 0; i < my_inode->nblocks-2; i++){
-        __sync_fetch_and_add(&(md[i].counter), 1);
-        if(!md[i].valid || md[i].logic_clock <= clock){
-             __sync_fetch_and_add(&(md[i].counter), -1);
+    printk("id del blocco %d\n", md->blk->id);
+    for (blk = md->blk; blk != NULL; blk = blk->next){
+        __sync_fetch_and_add(&(blk->counter), 1);
+        if(blk->clock <= clock){
+             __sync_fetch_and_add(&(blk->counter), -1);
+             printk("Sono nell'if\n");
         }
         else{
+            if(blk->clock > max_clock) max_clock = blk->clock;
             zero = false;
-            bh = (struct buffer_head *)sb_bread(my_sb, md[i].id);
-            printk("Ho letto il buffer per il nodo %d\n", md[i].id);
+            bh = (struct buffer_head *)sb_bread(my_sb, blk->id);
+            printk("Ho letto il buffer per il nodo %d\n", blk->id);
             if(!bh){
                 return -EIO;
             }
             my_data = (struct umsg_fs_blockdata *)bh->b_data;
             
-            if(my_data->md.logic_clock > max_clock) max_clock = my_data->md.logic_clock;
+            
             strncpy(my_file+copied, my_data->data, my_data->md.data_lenght);
             copied += my_data->md.data_lenght;
             strcpy(my_file+copied, "\n");
             copied++;
             
             brelse(bh);
-            __sync_fetch_and_add(&(md[i].counter), -1);
+            __sync_fetch_and_add(&(blk->counter), -1);
+            printk("Sono nell'else\n");
             if (copied >= effective_len) break;
         }
+        printk("Sto ciclando");
         
     }
     if(zero){
@@ -80,6 +83,7 @@ ssize_t umsg_fs_read(struct file * filp, char __user * buf, size_t len, loff_t *
     *((uint64_t *)filp->private_data) = max_clock;
     printk("%lld\n", *((uint64_t *)filp->private_data));
     strcpy(my_file+copied, "\0");
+    copied++;
     ret = copy_to_user(buf, my_file, copied);
     kfree(my_file);
     return len-ret;
@@ -87,7 +91,7 @@ ssize_t umsg_fs_read(struct file * filp, char __user * buf, size_t len, loff_t *
 
 int umsg_fs_open (struct inode *inode, struct file *filp){
     struct buffer_head *bh = NULL;
-    uint64_t *clock = false;
+    uint64_t *clock;
     
     printk("File in apertura\n");
 
