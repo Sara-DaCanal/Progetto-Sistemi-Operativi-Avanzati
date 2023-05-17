@@ -7,7 +7,7 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <string.h>
-#include "user_messages_fs.h"
+#include "umsg.h"
 
 int main(int argc, char *argv[]){
     int fd;
@@ -46,7 +46,7 @@ int main(int argc, char *argv[]){
 
     printf("Superblock successfully written\n");
 
-    inode.file_size = strlen("ciao")*nblocks/2; //cambiare è una prova
+    inode.file_size = 100; //cambiare è una prova
     inode.inode_num = UMSG_FS_FILE_INODE_NUM;
     inode.nblocks = nblocks;
 

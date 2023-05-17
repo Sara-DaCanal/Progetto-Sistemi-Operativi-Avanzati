@@ -11,16 +11,16 @@ __SYSCALL_DEFINEx(2, _put_data, char *, source, size_t, size){
         return -ENODEV;
     }
     sb = get_superblock();
-    put_data(sb, source, size);
-    printk("Sono la tua put\n");
-    return 0;
+    return put_data(sb, source, size);
 }
 __SYSCALL_DEFINEx(3, _get_data, int, offset, char *, destination, size_t, size){
+    struct super_block *sb;
     if(!single_mount){
         return -ENODEV;
     }
-    printk("Sono la tua get\n");
-    return 0;
+    sb = get_superblock();
+    
+    return get_data(sb, offset, destination, size);
 }
 __SYSCALL_DEFINEx(1, _invalidate_data, int, offset){
     if(!single_mount){

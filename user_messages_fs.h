@@ -7,43 +7,15 @@
 
     #include <linux/types.h>
     #include <linux/fs.h>
-    #define EXPORT_SYMTAB
+    #include "umsg.h"
     #define MOD_NAME "USER MESSAGE FS"
-    #define MAGIC 0x98765532
-    #define UMSG_BLOCK_SIZE 4096
     #define SB_BLOCK_NUMBER 0
     #define INODE_BLOCK_NUMBER 1
     #define UMSG_FS_ROOT_INODE_NUM 10
-    #define UMSG_FS_FILE_INODE_NUM 1
+   
 
     extern int single_mount;
 
-    //definire campi necessari del superblocco
-    struct __attribute__((packed)) umsg_fs_sb {
-        uint64_t magic;
-        uint64_t nblocks;
-
-        char padding[4096-(2*sizeof(uint64_t))];
-    };
-
-    struct __attribute__((packed)) umsg_fs_inode{
-        uint64_t inode_num;
-        uint64_t file_size;
-        uint64_t nblocks;
-        char padding[4096-(3*sizeof(uint64_t))];
-    };
-
-    //struct per ogni blocco
-    struct __attribute__((packed)) umsg_fs_metadata{
-        bool valid;
-        uint64_t data_lenght;
-        int id;
-    };
-
-    struct __attribute__((packed)) umsg_fs_blockdata{
-        struct umsg_fs_metadata md;
-        char data[4096 - sizeof(struct umsg_fs_metadata)];
-    };
 
     //struct del blocco in memoria
     struct umsg_fs_block_info{
@@ -58,6 +30,9 @@
     //struct in memoria
     struct umsg_fs_info{
         uint64_t list_len;
+        uint64_t nblocks;
+        uint64_t mask[NBLOCKS/64 + 1];
+        struct mutex write_mt;
         struct umsg_fs_block_info *blk;
     };
 
@@ -66,4 +41,8 @@
     extern int syscall_search(unsigned long address, int free_entries[]);
     extern struct super_block *get_superblock(void);
     extern int put_data(struct super_block *sb, char * source, size_t size);
+    extern int get_data(struct super_block *sb, int offset, char *destination, size_t size);
+    extern int init_bitmask(uint64_t[], uint64_t);
+    extern int set_id_bit(uint64_t[], uint64_t);
+    extern int get_and_set(uint64_t[]);
 #endif

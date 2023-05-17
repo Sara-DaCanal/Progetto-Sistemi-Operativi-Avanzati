@@ -37,6 +37,7 @@ ssize_t umsg_fs_read(struct file * filp, char __user * buf, size_t len, loff_t *
         effective_len = len;
 
     //create file
+    printk("Taglia:%lld\n", my_inode->file_size);
     my_file = (char *)kmalloc(my_inode->file_size, GFP_KERNEL);
     if(!my_file){
         return -EIO;
@@ -50,7 +51,6 @@ ssize_t umsg_fs_read(struct file * filp, char __user * buf, size_t len, loff_t *
         __sync_fetch_and_add(&(blk->counter), 1);
         if(blk->clock <= clock){
              __sync_fetch_and_add(&(blk->counter), -1);
-             printk("Sono nell'if\n");
         }
         else{
             if(blk->clock > max_clock) max_clock = blk->clock;
@@ -58,6 +58,7 @@ ssize_t umsg_fs_read(struct file * filp, char __user * buf, size_t len, loff_t *
             bh = (struct buffer_head *)sb_bread(my_sb, blk->id);
             printk("Ho letto il buffer per il nodo %d\n", blk->id);
             if(!bh){
+                __sync_fetch_and_add(&(blk->counter), -1);
                 return -EIO;
             }
             my_data = (struct umsg_fs_blockdata *)bh->b_data;
@@ -70,10 +71,8 @@ ssize_t umsg_fs_read(struct file * filp, char __user * buf, size_t len, loff_t *
             
             brelse(bh);
             __sync_fetch_and_add(&(blk->counter), -1);
-            printk("Sono nell'else\n");
             if (copied >= effective_len) break;
         }
-        printk("Sto ciclando");
         
     }
     if(zero){

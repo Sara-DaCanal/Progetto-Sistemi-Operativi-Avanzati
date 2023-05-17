@@ -1,6 +1,6 @@
 obj-m += user_message_fs.o
-user_message_fs-objs += user_message_fs_create.o umsg_file.o syscall_table_searcher.o umsg_block.o
-EXTRA_CFLAGS:= -D NBLOCKS=10
+user_message_fs-objs += user_message_fs_create.o umsg_file.o syscall_table_searcher.o umsg_block.o bitmask.o
+EXTRA_CFLAGS:= -D NBLOCKS=10 -D SYNC
 
 A = $(shell cat /sys/module/the_usctm/parameters/sys_call_table_address)
 B = $(shell cat /sys/module/the_usctm/parameters/free_entries)
@@ -15,6 +15,7 @@ clean:
 	rm create_umsg_fs
 	rm my_client
 	rm -r umsg_dir
+	rm image
 
 insmod:
 	insmod user_message_fs.ko sys_call_table_address=$(A) free_entries=$(B)

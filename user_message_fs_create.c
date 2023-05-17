@@ -48,6 +48,7 @@ int umsg_fs_fill_super(struct super_block *sb, void *data, int silent){
     magic = sb_dev->magic;
     nblocks = sb_dev->nblocks;
     brelse(bh);
+    printk("letto sb_dev\n");
 
     if(magic != sb->s_magic){
         return -EBADF;
@@ -57,9 +58,13 @@ int umsg_fs_fill_super(struct super_block *sb, void *data, int silent){
     }
 
     metadata = (struct umsg_fs_info *)kzalloc(nblocks * sizeof(struct umsg_fs_info), GFP_KERNEL);
+    printk("allocati i metadati\n");
     if(!metadata) return -ENOMEM;
     metadata->list_len = 0;
     metadata->blk = NULL;
+    metadata->nblocks = nblocks;
+    mutex_init(&(metadata->write_mt));
+    init_bitmask(metadata->mask, nblocks);
     sb->s_fs_info = (void *)metadata;
 
 
@@ -86,43 +91,60 @@ int umsg_fs_fill_super(struct super_block *sb, void *data, int silent){
 
     root_inode->i_private = NULL;
 
-
+    printk("Sistemato il root inode\n");
     sb->s_root = d_make_root(root_inode);
     if (sb->s_root==NULL)
         return -ENOMEM;
     sb->s_root->d_op = &umsg_fs_dentry_ops; //operazioni per la dentry
 
     unlock_new_inode(root_inode);
+    printk("Finito inode root\n");
 
     //fill array di metadati
     clock = 1;
     for(i = 2; i < nblocks; i++){
+        printk("Inizio primo ciclo\n");
         bh = sb_bread(sb, i);
+        printk("letto primo buffer\n");
         if(!bh){
             return -EIO;
         }
         blk_md = (struct umsg_fs_blockdata *)(bh->b_data);
+        printk("dati\n");
         if (blk_md->md.valid){
             metadata = (struct umsg_fs_info*)sb->s_fs_info;
+            printk("Inizio kmalloc\n");
             tmp = (struct umsg_fs_block_info *)kmalloc(sizeof(struct umsg_fs_block_info), GFP_KERNEL);
+            printk("fine kmalloc\n");
             if(!tmp) return -ENOMEM;
             tmp->valid = true;
+            printk("1\n");
             tmp->counter = 0;
             tmp->data_lenght = blk_md->md.data_lenght;
             tmp->clock = clock;
             tmp->id = blk_md->md.id;
+            printk("2\n");
             clock++;
             tmp->next = NULL;
-            if(metadata->blk == NULL){
+            printk("3\n");
+            if(!(metadata->blk)){
+                printk("4\n");
                 metadata->blk = tmp;
+                printk("5\n");
             } else{
+                printk("6\n");
                 prev->next = tmp;
+                printk("7\n");
             }
             metadata->list_len++;
+            printk("metadati impostati\n");
+            set_id_bit(metadata->mask, tmp->id);
+            printk("bit settato\n");
             prev = tmp;
         }
         brelse(bh);
     }
+    printk("Finito array\n");
     general_sb = sb;
     return 0;
 }
@@ -179,14 +201,12 @@ static struct file_system_type umsg_fs_type = {
 //init del modulo
 static int umsg_fs_init(void){
     int ret;
-    
     //registrare il file system
     ret = register_filesystem(&umsg_fs_type);
     if (ret == 0){
         printk("%s successfully registered\n", MOD_NAME);
         single_mount = 0;
         syscall_search(sys_call_table_address, free_entries);
-        printk("%d\n", free_entries[0]);
     }
     else{
         printk("%s failed with error %d\n", MOD_NAME, ret);
