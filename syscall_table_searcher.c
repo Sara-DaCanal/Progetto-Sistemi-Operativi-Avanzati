@@ -1,6 +1,6 @@
 #include <linux/syscalls.h>
 #include "user_messages_fs.h"
-#include "./include/vtpmo.h"
+//#include "./include/vtpmo.h"
 
 //necessario avere il superblocco tra i parametri delle system call
 
