@@ -24,31 +24,26 @@ int put_data(struct super_block *sb, char * source, size_t size){
     ret = copy_from_user(my_data->data, source, size);
     new_block = (struct umsg_fs_block_info *)kmalloc(sizeof(struct umsg_fs_block_info), GFP_KERNEL);
     if(!new_block) return -ENOMEM;
-    new_block->valid = true;
-    new_block->counter = 0;
     new_block->data_lenght = size;
     new_block->id = free_id;
-    new_block->next = NULL;
     mutex_lock(&(metadata->write_mt));
-    if(metadata->blk == NULL){
+    if(!list_first_or_null_rcu(&(metadata->blk), struct umsg_fs_block_info, list)){
         new_block->clock = 1;
-        __sync_bool_compare_and_swap(&(metadata->blk), NULL, new_block);
+        list_add_tail_rcu(&(new_block->list), &(metadata->blk));
     }
     else{
-        for(last = metadata->blk; last->next != NULL; last=last->next){
+        list_for_each_entry_rcu(last, &(metadata->blk), list){
         }
         new_block->clock = last->clock + 1;
-        __sync_bool_compare_and_swap(&(last->next), NULL, new_block);
+        list_add_tail_rcu(&(new_block->list), &(metadata->blk));
     }
     mutex_unlock(&(metadata->write_mt));
-    printk("%lld\n", (metadata->mask)[0]);
-    printk("%lld\n", (metadata->mask)[0]);
+    mark_buffer_dirty(bh);
     #ifdef SYNC
         sync_dirty_buffer(bh);
-    #else
-        mark_buffer_dirty(bh);
     #endif
     return free_id;
+    return 0;
 }
 
 int get_data(struct super_block *sb, int offset, char *destination, size_t size){
@@ -57,17 +52,15 @@ int get_data(struct super_block *sb, int offset, char *destination, size_t size)
     struct umsg_fs_blockdata *my_data;
     size_t true_len;
     int ret;
-
     struct umsg_fs_block_info *cur;
-    for(cur = md->blk; cur != NULL; cur = cur->next){
-        __sync_fetch_and_add(&(cur->counter), 1);
-        if(cur->id != offset){
-            __sync_fetch_and_add(&(cur->counter), -1);
-        }
-        else{
+    rcu_read_lock();
+    list_for_each_entry_rcu(cur, &(md->blk), list ){
+        printk("%d\n", cur->id);
+        if(cur->id == offset){
+            
             bh = sb_bread(sb, offset);
             if(!bh){
-                __sync_fetch_and_add(&(cur->counter), -1);
+                rcu_read_unlock();
                 return -EIO;
             }
             my_data = (struct umsg_fs_blockdata *)bh->b_data;
@@ -75,10 +68,52 @@ int get_data(struct super_block *sb, int offset, char *destination, size_t size)
             else true_len = size;
             ret = copy_to_user(destination, my_data->data, true_len);
             brelse(bh);
-            __sync_fetch_and_add(&(cur->counter), -1);
+            rcu_read_unlock();
             return true_len - ret;
 
         }
     }
+    rcu_read_unlock();
     return -ENODATA;
+}
+
+int invalidate(struct super_block *sb, int offset){
+    struct umsg_fs_info *md = (struct umsg_fs_info *)sb->s_fs_info;
+    struct umsg_fs_block_info *cur;
+    struct umsg_fs_block_info *my_block;
+    struct buffer_head *bh;
+    rcu_read_lock();
+    cur = list_first_or_null_rcu(&(md->blk), struct umsg_fs_block_info, list);
+    if(!cur){
+        rcu_read_unlock();
+        return -ENODATA;
+    }
+    if(cur->id == offset){
+        mutex_lock(&(md->write_mt));
+        list_del_rcu(&(cur->list));
+        mutex_unlock(&(md->write_mt));
+    } 
+    else{
+        list_for_each_entry_rcu(cur, &(md->blk), list){
+            my_block = list_next_or_null_rcu(&(md->blk), &(cur->list), struct umsg_fs_block_info, list);
+            if(!my_block) break;
+            if(my_block->id == offset){
+
+                mutex_lock(&(md->write_mt));
+                list_del_rcu(&(my_block->list));
+                mutex_unlock(&(md->write_mt));
+            }
+        }
+    }
+    rcu_read_unlock();
+    bh = sb_bread(sb, offset);
+    if(!bh) return -EIO;
+    ((struct umsg_fs_blockdata *)bh->b_data)->md.valid = false;
+    mark_buffer_dirty(bh);
+    #ifdef SYNC
+        sync_dirty_buffer(bh);
+    #endif
+    synchronize_rcu();
+    reset_id_bit(md->mask, offset);
+    return 0;
 }

@@ -17,7 +17,7 @@ ssize_t umsg_fs_read(struct file * filp, char __user * buf, size_t len, loff_t *
     int copied;
     int ret;
     bool zero;
-    size_t effective_len;
+    int block_to_read;
     uint64_t max_clock;
 
     uint64_t clock = *((uint64_t *)filp->private_data);
@@ -29,16 +29,19 @@ ssize_t umsg_fs_read(struct file * filp, char __user * buf, size_t len, loff_t *
     printk("Superblock successfully read\n");
 
     md = (struct umsg_fs_info *)my_sb->s_fs_info;
-    my_inode = filp->f_inode->i_private;
+   /* my_inode = filp->f_inode->i_private;
 
     if(len > my_inode->file_size)
          effective_len = my_inode->file_size;
     else
-        effective_len = len;
+        effective_len = len;*/
+
+    block_to_read = len / UMSG_BLOCK_SIZE + 1;
+    if(block_to_read > md->list_len)
+        block_to_read = md->list_len;
 
     //create file
-    printk("Taglia:%lld\n", my_inode->file_size);
-    my_file = (char *)kmalloc(my_inode->file_size, GFP_KERNEL);
+    my_file = (char *)kmalloc(block_to_read*UMSG_BLOCK_SIZE, GFP_KERNEL);
     if(!my_file){
         return -EIO;
     }
@@ -46,19 +49,16 @@ ssize_t umsg_fs_read(struct file * filp, char __user * buf, size_t len, loff_t *
 
 
     copied = 0; //lunghezza di byte copiati sul file
-    printk("id del blocco %d\n", md->blk->id);
-    for (blk = md->blk; blk != NULL; blk = blk->next){
-        __sync_fetch_and_add(&(blk->counter), 1);
-        if(blk->clock <= clock){
-             __sync_fetch_and_add(&(blk->counter), -1);
-        }
-        else{
+    rcu_read_lock();
+    list_for_each_entry_rcu(blk, &(md->blk), list){
+        if(copied + blk->data_lenght > len) break;
+        if(blk->clock > clock){
             if(blk->clock > max_clock) max_clock = blk->clock;
             zero = false;
             bh = (struct buffer_head *)sb_bread(my_sb, blk->id);
             printk("Ho letto il buffer per il nodo %d\n", blk->id);
             if(!bh){
-                __sync_fetch_and_add(&(blk->counter), -1);
+                rcu_read_unlock();
                 return -EIO;
             }
             my_data = (struct umsg_fs_blockdata *)bh->b_data;
@@ -70,11 +70,10 @@ ssize_t umsg_fs_read(struct file * filp, char __user * buf, size_t len, loff_t *
             copied++;
             
             brelse(bh);
-            __sync_fetch_and_add(&(blk->counter), -1);
-            if (copied >= effective_len) break;
         }
         
     }
+    rcu_read_unlock();
     if(zero){
         kfree(my_file);
         return 0;
@@ -116,9 +115,44 @@ int umsg_fs_release (struct inode *inode, struct file *filp){
     inode->i_private = NULL;
     return 0;
 }
+
+struct dentry *umsg_fs_lookup(struct inode *parent_inode, struct dentry *child_dentry, unsigned int flags){
+    struct super_block *sb = parent_inode->i_sb;
+    struct buffer_head *bh = NULL;
+    struct inode *my_inode = NULL;
+
+    if(!strcmp(child_dentry->d_name.name, FILE_NAME)){
+        my_inode = iget_locked(sb, 1);
+        if(!my_inode) return ERR_PTR(-ENOMEM);
+
+        if(!(my_inode->i_state & I_NEW)){
+            return child_dentry;
+        }
+
+        inode_init_owner(&init_user_ns, my_inode, NULL, S_IFREG);
+        my_inode->i_mode = S_IFREG | S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IXUSR | S_IXGRP | S_IXOTH;
+        my_inode->i_fop = &umsg_fs_ops;
+
+        set_nlink(my_inode, 1);
+        /*bh = (struct buffer_head *)sb_bread(sb, UMSG_FS_FILE_INODE_NUM);
+        if(!bh){
+            iput(my_inode);
+            return ERR_PTR(-EIO);
+        } */
+        d_add(child_dentry, my_inode);
+        dget(child_dentry);
+        unlock_new_inode(my_inode);
+        return child_dentry;
+    }
+    return NULL;
+}
 const struct file_operations umsg_fs_ops = {
     .owner = THIS_MODULE,
     .read = umsg_fs_read,
     .open = umsg_fs_open,
     .release = umsg_fs_release
+};
+
+const struct inode_operations umsg_fs_inode_ops = {
+    .lookup = umsg_fs_lookup
 };

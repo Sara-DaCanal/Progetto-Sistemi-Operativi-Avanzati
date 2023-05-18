@@ -1,5 +1,5 @@
 obj-m += user_message_fs.o
-user_message_fs-objs += user_message_fs_create.o umsg_file.o syscall_table_searcher.o umsg_block.o bitmask.o
+user_message_fs-objs += user_message_fs_create.o umsg_file.o syscall_table_searcher.o umsg_block.o bitmask.o umsg_dir.o
 EXTRA_CFLAGS:= -D NBLOCKS=10 -D SYNC
 
 A = $(shell cat /sys/module/the_usctm/parameters/sys_call_table_address)

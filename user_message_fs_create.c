@@ -15,7 +15,7 @@ module_param_array(free_entries, int, NULL, 0660);
 
 static struct super_operations umsg_fs_super_ops = {};
 static struct dentry_operations umsg_fs_dentry_ops = {};
-static struct inode_operations umsg_fs_inode_ops = {};
+
 
 struct super_block *get_superblock(void){
     return general_sb;
@@ -61,7 +61,7 @@ int umsg_fs_fill_super(struct super_block *sb, void *data, int silent){
     printk("allocati i metadati\n");
     if(!metadata) return -ENOMEM;
     metadata->list_len = 0;
-    metadata->blk = NULL;
+    INIT_LIST_HEAD_RCU(&(metadata->blk));
     metadata->nblocks = nblocks;
     mutex_init(&(metadata->write_mt));
     init_bitmask(metadata->mask, nblocks);
@@ -80,7 +80,7 @@ int umsg_fs_fill_super(struct super_block *sb, void *data, int silent){
     inode_init_owner(&init_user_ns, root_inode, NULL, S_IFDIR); //flag per block device
     root_inode->i_sb = sb;
     root_inode->i_op = &umsg_fs_inode_ops; //operazioni custom per inode
-    root_inode->i_fop = &umsg_fs_ops; //driver con ops del file
+    root_inode->i_fop = &umsg_fs_dir_ops; //driver con ops del file
 
     root_inode->i_mode = S_IFDIR | S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IXUSR | S_IXGRP | S_IXOTH;
 
@@ -117,25 +117,12 @@ int umsg_fs_fill_super(struct super_block *sb, void *data, int silent){
             tmp = (struct umsg_fs_block_info *)kmalloc(sizeof(struct umsg_fs_block_info), GFP_KERNEL);
             printk("fine kmalloc\n");
             if(!tmp) return -ENOMEM;
-            tmp->valid = true;
-            printk("1\n");
-            tmp->counter = 0;
             tmp->data_lenght = blk_md->md.data_lenght;
             tmp->clock = clock;
             tmp->id = blk_md->md.id;
-            printk("2\n");
+            printk("%d\n", tmp->id);
             clock++;
-            tmp->next = NULL;
-            printk("3\n");
-            if(!(metadata->blk)){
-                printk("4\n");
-                metadata->blk = tmp;
-                printk("5\n");
-            } else{
-                printk("6\n");
-                prev->next = tmp;
-                printk("7\n");
-            }
+            list_add_tail_rcu(&(tmp->list), &(metadata->blk));
             metadata->list_len++;
             printk("metadati impostati\n");
             set_id_bit(metadata->mask, tmp->id);
@@ -174,14 +161,16 @@ struct dentry *umsg_fs_mount(struct file_system_type *fs_type, int flags, const 
 static void umsg_fs_kill_sb(struct super_block *sb){
     int i;
     struct umsg_fs_info *tmp = ((struct umsg_fs_info *)sb->s_fs_info);
-    struct umsg_fs_block_info *cur = tmp->blk;
-    struct umsg_fs_block_info *next = tmp->blk->next;
+    struct umsg_fs_block_info *cur = list_first_or_null_rcu(&(tmp->blk), struct umsg_fs_block_info, list);
+    struct umsg_fs_block_info *next = list_next_or_null_rcu(&(tmp->blk), &(cur->list), struct umsg_fs_block_info, list);
     for (i = 0; i < tmp->list_len; i++){
+        printk("%d\n", cur->id);
         kfree(cur);
         cur = next;
-        next = cur->next;
+        next = list_next_or_null_rcu(&(tmp->blk), &(cur->list), struct umsg_fs_block_info, list);
         if(next == NULL) break;
     }
+    printk("%d\n", cur->id);
     kfree(cur);
     kfree(sb->s_fs_info);
     __sync_fetch_and_add(&single_mount, -1);

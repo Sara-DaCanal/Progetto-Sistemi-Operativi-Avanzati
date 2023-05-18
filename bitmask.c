@@ -14,6 +14,16 @@ int set_id_bit(uint64_t array[], uint64_t id){
     return 0;
 }
 
+int reset_id_bit(uint64_t array[], uint64_t id){
+    uint64_t new_value;
+    uint64_t array_i = id / 64;
+    uint64_t bit_index = id % 64;
+    if(array_i >= max) return -ENOBUFS;
+    new_value = array[array_i] & ~(SINGLE_BIT_MASK << bit_index);
+    __atomic_exchange_n(&(array[array_i]), new_value, __ATOMIC_SEQ_CST);
+    return 0;
+}
+
 int init_bitmask(uint64_t array[], uint64_t n){
     max = n/64 + 1;
     for(i = 0; i < max; i++){

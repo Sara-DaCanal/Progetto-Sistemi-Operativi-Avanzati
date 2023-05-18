@@ -23,11 +23,12 @@ __SYSCALL_DEFINEx(3, _get_data, int, offset, char *, destination, size_t, size){
     return get_data(sb, offset, destination, size);
 }
 __SYSCALL_DEFINEx(1, _invalidate_data, int, offset){
+    struct super_block *sb;
     if(!single_mount){
         return -ENODEV;
     }
-    printk("Sono la tua invalidate\n");
-    return 0;
+    sb = get_superblock();
+    return invalidate(sb, offset);
 }
 
 long sys_put_data = (unsigned long) __x64_sys_put_data;
