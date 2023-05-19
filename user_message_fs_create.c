@@ -1,3 +1,6 @@
+/**********************************************
+* Init del modulo e montaggio del file system *
+***********************************************/
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/timekeeping.h>
@@ -6,8 +9,10 @@
 #include <linux/types.h>
 #include "user_messages_fs.h"
 
-int single_mount;
-struct super_block *general_sb = NULL;
+int single_mount; //variabile per evitare montaggi multipli
+struct super_block *general_sb = NULL; //superblocco esposto a tutto il modulo
+
+//parametri del modulo
 unsigned long sys_call_table_address = 0x0;
 module_param(sys_call_table_address, ulong, 0660);
 int free_entries[15];
@@ -16,11 +21,12 @@ module_param_array(free_entries, int, NULL, 0660);
 static struct super_operations umsg_fs_super_ops = {};
 static struct dentry_operations umsg_fs_dentry_ops = {};
 
-
+//esporre il superblocco alle system call
 struct super_block *get_superblock(void){
     return general_sb;
 }
 
+//funzione di fill del superblocco
 int umsg_fs_fill_super(struct super_block *sb, void *data, int silent){
 
     struct inode *root_inode;
@@ -34,12 +40,10 @@ int umsg_fs_fill_super(struct super_block *sb, void *data, int silent){
     struct umsg_fs_block_info *prev;
     struct umsg_fs_block_info *tmp;
     int i;
-    int clock;
-    printk("inizio la fill\n");
 
     sb->s_magic = MAGIC;
 
-    //ottieni un blocco
+    //ottieni device superblocco e controlla sia valido
     bh = sb_bread(sb, SB_BLOCK_NUMBER);
     if(bh == NULL){
         return -EIO;
@@ -48,7 +52,6 @@ int umsg_fs_fill_super(struct super_block *sb, void *data, int silent){
     magic = sb_dev->magic;
     nblocks = sb_dev->nblocks;
     brelse(bh);
-    printk("letto sb_dev\n");
 
     if(magic != sb->s_magic){
         return -EBADF;
@@ -57,12 +60,13 @@ int umsg_fs_fill_super(struct super_block *sb, void *data, int silent){
         return -EBADF;
     }
 
+    //inizializzazione dei metadati in ram
     metadata = (struct umsg_fs_info *)kzalloc(nblocks * sizeof(struct umsg_fs_info), GFP_KERNEL);
-    printk("allocati i metadati\n");
     if(!metadata) return -ENOMEM;
     metadata->list_len = 0;
     INIT_LIST_HEAD_RCU(&(metadata->blk));
     metadata->nblocks = nblocks;
+    metadata->max_timestamp = 0;
     mutex_init(&(metadata->write_mt));
     init_bitmask(metadata->mask, nblocks);
     sb->s_fs_info = (void *)metadata;
@@ -77,7 +81,7 @@ int umsg_fs_fill_super(struct super_block *sb, void *data, int silent){
     }
 
     root_inode->i_ino = UMSG_FS_ROOT_INODE_NUM;
-    inode_init_owner(&init_user_ns, root_inode, NULL, S_IFDIR); //flag per block device
+    inode_init_owner(&init_user_ns, root_inode, NULL, S_IFDIR); 
     root_inode->i_sb = sb;
     root_inode->i_op = &umsg_fs_inode_ops; //operazioni custom per inode
     root_inode->i_fop = &umsg_fs_dir_ops; //driver con ops del file
@@ -91,47 +95,52 @@ int umsg_fs_fill_super(struct super_block *sb, void *data, int silent){
 
     root_inode->i_private = NULL;
 
-    printk("Sistemato il root inode\n");
     sb->s_root = d_make_root(root_inode);
     if (sb->s_root==NULL)
         return -ENOMEM;
     sb->s_root->d_op = &umsg_fs_dentry_ops; //operazioni per la dentry
 
     unlock_new_inode(root_inode);
-    printk("Finito inode root\n");
 
     //fill array di metadati
-    clock = 1;
-    for(i = 2; i < nblocks; i++){
-        printk("Inizio primo ciclo\n");
+    for(i = 1; i < nblocks; i++){
+        printk("Inizio la fill del blocco: %d\n", i); 
         bh = sb_bread(sb, i);
-        printk("letto primo buffer\n");
         if(!bh){
             return -EIO;
         }
         blk_md = (struct umsg_fs_blockdata *)(bh->b_data);
-        printk("dati\n");
         if (blk_md->md.valid){
+            printk("Il blocco è valido\n");
             metadata = (struct umsg_fs_info*)sb->s_fs_info;
-            printk("Inizio kmalloc\n");
             tmp = (struct umsg_fs_block_info *)kmalloc(sizeof(struct umsg_fs_block_info), GFP_KERNEL);
-            printk("fine kmalloc\n");
             if(!tmp) return -ENOMEM;
             tmp->data_lenght = blk_md->md.data_lenght;
-            tmp->clock = clock;
+            tmp->clock = blk_md->md.timestamp;
             tmp->id = blk_md->md.id;
-            printk("%d\n", tmp->id);
-            clock++;
-            list_add_tail_rcu(&(tmp->list), &(metadata->blk));
+            printk("Il blocco ha ordine: %lld\n", tmp->clock);
+            
+            if(!list_first_or_null_rcu(&(metadata->blk), struct umsg_fs_block_info, list)){
+                list_add_tail_rcu(&(tmp->list), &(metadata->blk));
+            }
+            else{
+                list_for_each_entry_rcu(prev, &(metadata->blk), list){
+                    if(prev->clock > tmp->clock){
+                        list_add_tail_rcu(&(tmp->list), &(prev->list));
+                    }
+                    else if(!list_next_or_null_rcu(&(metadata->blk), &(prev->list), struct umsg_fs_block_info, list)){
+                        list_add_tail_rcu(&(tmp->list), &(metadata->blk));
+                        break;
+                    }
+                    
+                }
+            }
             metadata->list_len++;
-            printk("metadati impostati\n");
+            if(tmp->clock > metadata->max_timestamp) metadata->max_timestamp = tmp->clock;
             set_id_bit(metadata->mask, tmp->id);
-            printk("bit settato\n");
-            prev = tmp;
         }
         brelse(bh);
     }
-    printk("Finito array\n");
     general_sb = sb;
     return 0;
 }
@@ -162,16 +171,18 @@ static void umsg_fs_kill_sb(struct super_block *sb){
     int i;
     struct umsg_fs_info *tmp = ((struct umsg_fs_info *)sb->s_fs_info);
     struct umsg_fs_block_info *cur = list_first_or_null_rcu(&(tmp->blk), struct umsg_fs_block_info, list);
-    struct umsg_fs_block_info *next = list_next_or_null_rcu(&(tmp->blk), &(cur->list), struct umsg_fs_block_info, list);
-    for (i = 0; i < tmp->list_len; i++){
-        printk("%d\n", cur->id);
+    if(cur){
+        struct umsg_fs_block_info *next = list_next_or_null_rcu(&(tmp->blk), &(cur->list), struct umsg_fs_block_info, list);
+        if(next){
+            for (i = 0; i < tmp->list_len; i++){
+                kfree(cur);
+                cur = next;
+                next = list_next_or_null_rcu(&(tmp->blk), &(cur->list), struct umsg_fs_block_info, list);
+                if(next == NULL) break;
+            }
+        }
         kfree(cur);
-        cur = next;
-        next = list_next_or_null_rcu(&(tmp->blk), &(cur->list), struct umsg_fs_block_info, list);
-        if(next == NULL) break;
     }
-    printk("%d\n", cur->id);
-    kfree(cur);
     kfree(sb->s_fs_info);
     __sync_fetch_and_add(&single_mount, -1);
     kill_block_super(sb);

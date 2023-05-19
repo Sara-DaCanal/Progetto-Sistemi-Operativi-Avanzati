@@ -1,9 +1,10 @@
+/**************************************************
+* Definizione di system call file system specific *
+***************************************************/
 #include <linux/syscalls.h>
 #include "user_messages_fs.h"
-//#include "./include/vtpmo.h"
 
-//necessario avere il superblocco tra i parametri delle system call
-
+//definizione per system call put
 __SYSCALL_DEFINEx(2, _put_data, char *, source, size_t, size){
     struct super_block *sb;
     if(!single_mount){
@@ -13,6 +14,8 @@ __SYSCALL_DEFINEx(2, _put_data, char *, source, size_t, size){
     sb = get_superblock();
     return put_data(sb, source, size);
 }
+
+//definizione per sistem call get
 __SYSCALL_DEFINEx(3, _get_data, int, offset, char *, destination, size_t, size){
     struct super_block *sb;
     if(!single_mount){
@@ -22,6 +25,8 @@ __SYSCALL_DEFINEx(3, _get_data, int, offset, char *, destination, size_t, size){
     
     return get_data(sb, offset, destination, size);
 }
+
+//definizione per system call invalidate
 __SYSCALL_DEFINEx(1, _invalidate_data, int, offset){
     struct super_block *sb;
     if(!single_mount){
@@ -31,6 +36,7 @@ __SYSCALL_DEFINEx(1, _invalidate_data, int, offset){
     return invalidate(sb, offset);
 }
 
+//inserimento delle system call nelle entry libere della system call table
 long sys_put_data = (unsigned long) __x64_sys_put_data;
 long sys_get_data = (unsigned long) __x64_sys_get_data;
 long sys_invalidate_data = (unsigned long) __x64_sys_invalidate_data;
@@ -41,8 +47,6 @@ static inline void
 write_cr0_forced(unsigned long val)
 {
     unsigned long __force_order;
-
-    /* __asm__ __volatile__( */
     asm volatile(
         "mov %0, %%cr0"
         : "+r"(val), "+m"(__force_order));

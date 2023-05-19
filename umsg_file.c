@@ -1,3 +1,6 @@
+/********************
+* Funzioni sul file *
+*********************/
 #include <linux/fdtable.h>
 #include <linux/fs.h>
 #include <linux/buffer_head.h>
@@ -5,14 +8,13 @@
 #include "user_messages_fs.h"
 
 
-
+//funzione read
 ssize_t umsg_fs_read(struct file * filp, char __user * buf, size_t len, loff_t * off){
     struct buffer_head *bh = NULL;
     struct umsg_fs_blockdata *my_data;
     struct umsg_fs_info *md;
     struct umsg_fs_block_info *blk;
     struct super_block *my_sb;
-    struct umsg_fs_inode *my_inode;
     char *my_file;
     int copied;
     int ret;
@@ -29,12 +31,6 @@ ssize_t umsg_fs_read(struct file * filp, char __user * buf, size_t len, loff_t *
     printk("Superblock successfully read\n");
 
     md = (struct umsg_fs_info *)my_sb->s_fs_info;
-   /* my_inode = filp->f_inode->i_private;
-
-    if(len > my_inode->file_size)
-         effective_len = my_inode->file_size;
-    else
-        effective_len = len;*/
 
     block_to_read = len / UMSG_BLOCK_SIZE + 1;
     if(block_to_read > md->list_len)
@@ -62,8 +58,6 @@ ssize_t umsg_fs_read(struct file * filp, char __user * buf, size_t len, loff_t *
                 return -EIO;
             }
             my_data = (struct umsg_fs_blockdata *)bh->b_data;
-            
-            
             strncpy(my_file+copied, my_data->data, my_data->md.data_lenght);
             copied += my_data->md.data_lenght;
             strcpy(my_file+copied, "\n");
@@ -79,7 +73,6 @@ ssize_t umsg_fs_read(struct file * filp, char __user * buf, size_t len, loff_t *
         return 0;
     }
     *((uint64_t *)filp->private_data) = max_clock;
-    printk("%lld\n", *((uint64_t *)filp->private_data));
     strcpy(my_file+copied, "\0");
     copied++;
     ret = copy_to_user(buf, my_file, copied);
@@ -87,8 +80,8 @@ ssize_t umsg_fs_read(struct file * filp, char __user * buf, size_t len, loff_t *
     return len-ret;
 }
 
+//funzione open
 int umsg_fs_open (struct inode *inode, struct file *filp){
-    struct buffer_head *bh = NULL;
     uint64_t *clock;
     
     printk("File in apertura\n");
@@ -99,26 +92,19 @@ int umsg_fs_open (struct inode *inode, struct file *filp){
     filp->f_mode &= ~(FMODE_LSEEK | FMODE_PREAD | FMODE_PWRITE | FMODE_ATOMIC_POS | FMODE_CAN_WRITE);
     filp->f_mode |= FMODE_STREAM;
     
-    //set inode
-    bh = (struct buffer_head *)sb_bread(filp->f_path.dentry->d_inode->i_sb, INODE_BLOCK_NUMBER);
-    if(!bh){
-        return -EIO;
-    }
-    inode->i_private = (struct umsg_fs_inode *)bh->b_data;
     return 0;
 }
 
+//funzione release
 int umsg_fs_release (struct inode *inode, struct file *filp){
     printk("File in fase di rilascio");
     kfree(filp->private_data);
     filp->private_data = NULL;
-    inode->i_private = NULL;
     return 0;
 }
 
 struct dentry *umsg_fs_lookup(struct inode *parent_inode, struct dentry *child_dentry, unsigned int flags){
     struct super_block *sb = parent_inode->i_sb;
-    struct buffer_head *bh = NULL;
     struct inode *my_inode = NULL;
 
     if(!strcmp(child_dentry->d_name.name, FILE_NAME)){
@@ -134,11 +120,6 @@ struct dentry *umsg_fs_lookup(struct inode *parent_inode, struct dentry *child_d
         my_inode->i_fop = &umsg_fs_ops;
 
         set_nlink(my_inode, 1);
-        /*bh = (struct buffer_head *)sb_bread(sb, UMSG_FS_FILE_INODE_NUM);
-        if(!bh){
-            iput(my_inode);
-            return ERR_PTR(-EIO);
-        } */
         d_add(child_dentry, my_inode);
         dget(child_dentry);
         unlock_new_inode(my_inode);

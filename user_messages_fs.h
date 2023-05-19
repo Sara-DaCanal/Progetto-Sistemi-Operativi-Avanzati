@@ -1,6 +1,6 @@
-/*******************************************
-* Header per il mio fantastico file system *
-*******************************************/
+/****************************
+* Header per il file system *
+*****************************/
 
 #ifndef _UMESG_H
     #define _UMESG_H
@@ -9,6 +9,7 @@
     #include <linux/fs.h>
     #include <linux/rculist.h>
     #include "umsg.h"
+
     #define MOD_NAME "USER MESSAGE FS"
     #define FILE_NAME "umsg_fs_file"
     #define FILENAME_MAXLEN 255
@@ -16,9 +17,7 @@
     #define INODE_BLOCK_NUMBER 1
     #define UMSG_FS_ROOT_INODE_NUM 10
    
-
     extern int single_mount;
-
 
     //struct del blocco in memoria
     struct umsg_fs_block_info{
@@ -28,10 +27,11 @@
         struct list_head list;
     };
 
-    //struct in memoria
+    //struct in memoria per il superblocco
     struct umsg_fs_info{
         uint64_t list_len;
         uint64_t nblocks;
+        uint64_t max_timestamp;
         uint64_t mask[NBLOCKS/64 + 1];
         struct mutex write_mt;
         struct list_head blk;

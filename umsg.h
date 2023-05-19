@@ -1,3 +1,6 @@
+/****************
+* Libreria user *
+*****************/
 #ifndef _UMSG_H
     #define _UMSG_H
 
@@ -15,21 +18,15 @@
     };
 
 
-    struct __attribute__((packed)) umsg_fs_inode{
-        uint64_t inode_num;
-        uint64_t file_size;
-        uint64_t nblocks;
-        char padding[4096-(3*sizeof(uint64_t))];
-    };
-
-
-    //struct per ogni blocco
+    //struct metadati per ogni blocco
     struct __attribute__((packed)) umsg_fs_metadata{
         bool valid;
         uint64_t data_lenght;
         int id;
+        uint64_t timestamp;
     };
 
+    //struct per ogni blocco
     struct __attribute__((packed)) umsg_fs_blockdata{
         struct umsg_fs_metadata md;
         char data[4096 - sizeof(struct umsg_fs_metadata)];
