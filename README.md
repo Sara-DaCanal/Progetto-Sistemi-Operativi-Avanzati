@@ -46,3 +46,4 @@ Queste operazioni si possono trovare nel file [umsg_file.c](./umsg_file.c "umsg_
  * Rimozione del modulo con "sudo make rmmod"
  
  Il file [my_client.c](./my_client.c "My_client") può essere usato per testare.
+ Nel makefile è possibile configurare il massimo numero di blocchi supportati e se le scritture sul device saranno sincrone o asincrone.
