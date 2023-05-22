@@ -12,7 +12,7 @@ __SYSCALL_DEFINEx(2, _put_data, char *, source, size_t, size){
         return -ENODEV;
     }
     sb = get_superblock();
-    return put_data(sb, source, size);
+    return internal_put_data(sb, source, size);
 }
 
 //definizione per sistem call get
@@ -23,7 +23,7 @@ __SYSCALL_DEFINEx(3, _get_data, int, offset, char *, destination, size_t, size){
     }
     sb = get_superblock();
     
-    return get_data(sb, offset, destination, size);
+    return internal_get_data(sb, offset, destination, size);
 }
 
 //definizione per system call invalidate
@@ -33,7 +33,7 @@ __SYSCALL_DEFINEx(1, _invalidate_data, int, offset){
         return -ENODEV;
     }
     sb = get_superblock();
-    return invalidate(sb, offset);
+    return internal_invalidate(sb, offset);
 }
 
 //inserimento delle system call nelle entry libere della system call table

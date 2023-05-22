@@ -42,9 +42,9 @@
     extern const struct inode_operations umsg_fs_inode_ops;
     extern int syscall_search(unsigned long address, int free_entries[]);
     extern struct super_block *get_superblock(void);
-    extern int put_data(struct super_block *sb, char * source, size_t size);
-    extern int get_data(struct super_block *sb, int offset, char *destination, size_t size);
-    extern int invalidate(struct super_block *sb, int offset);
+    extern int internal_put_data(struct super_block *sb, char * source, size_t size);
+    extern int internal_get_data(struct super_block *sb, int offset, char *destination, size_t size);
+    extern int internal_invalidate(struct super_block *sb, int offset);
     extern int init_bitmask(uint64_t[], uint64_t);
     extern int set_id_bit(uint64_t[], uint64_t);
     extern int reset_id_bit(uint64_t[], uint64_t);

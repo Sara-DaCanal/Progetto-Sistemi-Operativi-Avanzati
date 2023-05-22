@@ -5,7 +5,7 @@
 #include "user_messages_fs.h"
 
 //inserimento dati sul primo blocco libero
-int put_data(struct super_block *sb, char * source, size_t size){
+int internal_put_data(struct super_block *sb, char * source, size_t size){
     struct buffer_head *bh;
     struct umsg_fs_info *metadata = sb->s_fs_info;
     struct umsg_fs_blockdata *my_data;
@@ -44,11 +44,10 @@ int put_data(struct super_block *sb, char * source, size_t size){
         sync_dirty_buffer(bh);
     #endif
     return free_id;
-    return 0;
 }
 
 //get data da un blocco
-int get_data(struct super_block *sb, int offset, char *destination, size_t size){
+int internal_get_data(struct super_block *sb, int offset, char *destination, size_t size){
     struct umsg_fs_info *md = (struct umsg_fs_info *)sb->s_fs_info;
     struct buffer_head *bh;
     struct umsg_fs_blockdata *my_data;
@@ -80,7 +79,7 @@ int get_data(struct super_block *sb, int offset, char *destination, size_t size)
 }
 
 //invalidate di un blocco
-int invalidate(struct super_block *sb, int offset){
+int internal_invalidate(struct super_block *sb, int offset){
     struct umsg_fs_info *md = (struct umsg_fs_info *)sb->s_fs_info;
     struct umsg_fs_block_info *cur;
     struct umsg_fs_block_info *my_block;
