@@ -7,6 +7,7 @@
 #include <linux/time.h>
 #include <linux/buffer_head.h>
 #include <linux/types.h>
+#include <linux/version.h>
 #include "user_messages_fs.h"
 
 int single_mount; //variabile per evitare montaggi multipli
@@ -81,7 +82,11 @@ int umsg_fs_fill_super(struct super_block *sb, void *data, int silent){
     }
 
     root_inode->i_ino = UMSG_FS_ROOT_INODE_NUM;
+    #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,12,0)
     inode_init_owner(&init_user_ns, root_inode, NULL, S_IFDIR); 
+    #else
+    inode_init_owner(root_inode, NULL, S_IFDIR);
+    #endif
     root_inode->i_sb = sb;
     root_inode->i_op = &umsg_fs_inode_ops; //operazioni custom per inode
     root_inode->i_fop = &umsg_fs_dir_ops; //driver con ops del file

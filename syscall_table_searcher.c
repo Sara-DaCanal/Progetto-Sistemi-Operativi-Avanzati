@@ -2,10 +2,15 @@
 * Definizione di system call file system specific *
 ***************************************************/
 #include <linux/syscalls.h>
+#include <linux/version.h>
 #include "user_messages_fs.h"
 
 //definizione per system call put
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0)
 __SYSCALL_DEFINEx(2, _put_data, char *, source, size_t, size){
+#else
+    asmlinkage long sys_put_data(char *source, size_t size){
+#endif
     struct super_block *sb;
     if(!single_mount){
         printk("Single mount value %d\n", single_mount);
@@ -15,8 +20,13 @@ __SYSCALL_DEFINEx(2, _put_data, char *, source, size_t, size){
     return internal_put_data(sb, source, size);
 }
 
+
 //definizione per sistem call get
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0)
 __SYSCALL_DEFINEx(3, _get_data, int, offset, char *, destination, size_t, size){
+#else
+    asmlinkage long sys_get_data(int offset, char *destination, size_t size){
+#endif
     struct super_block *sb;
     if(!single_mount){
         return -ENODEV;
@@ -27,7 +37,11 @@ __SYSCALL_DEFINEx(3, _get_data, int, offset, char *, destination, size_t, size){
 }
 
 //definizione per system call invalidate
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0)
 __SYSCALL_DEFINEx(1, _invalidate_data, int, offset){
+#else
+    asmlinkage long sys_invalidate_data(int offset){
+#endif
     struct super_block *sb;
     if(!single_mount){
         return -ENODEV;
@@ -37,9 +51,12 @@ __SYSCALL_DEFINEx(1, _invalidate_data, int, offset){
 }
 
 //inserimento delle system call nelle entry libere della system call table
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0)
 long sys_put_data = (unsigned long) __x64_sys_put_data;
 long sys_get_data = (unsigned long) __x64_sys_get_data;
 long sys_invalidate_data = (unsigned long) __x64_sys_invalidate_data;
+#else
+#endif
 
 unsigned long cr0;
 

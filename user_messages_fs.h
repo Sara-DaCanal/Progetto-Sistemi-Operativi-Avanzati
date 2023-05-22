@@ -8,6 +8,7 @@
     #include <linux/types.h>
     #include <linux/fs.h>
     #include <linux/rculist.h>
+    #include <linux/slab.h>
     #include "umsg.h"
 
     #define MOD_NAME "USER MESSAGE FS"
