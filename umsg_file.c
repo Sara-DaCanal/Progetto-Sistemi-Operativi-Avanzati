@@ -114,8 +114,11 @@ struct dentry *umsg_fs_lookup(struct inode *parent_inode, struct dentry *child_d
         if(!(my_inode->i_state & I_NEW)){
             return child_dentry;
         }
-
+        #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,12,0)
         inode_init_owner(&init_user_ns, my_inode, NULL, S_IFREG);
+        #else
+        inode_init_owner(my_inode, NULL, S_IFREG);
+        #endif
         my_inode->i_mode = S_IFREG | S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IXUSR | S_IXGRP | S_IXOTH;
         my_inode->i_fop = &umsg_fs_ops;
 
