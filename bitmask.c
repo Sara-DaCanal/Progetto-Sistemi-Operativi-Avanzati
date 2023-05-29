@@ -40,6 +40,14 @@ int init_bitmask(uint64_t array[], uint64_t n){
     return 0;
 }
 
+int check_bit(uint64_t array[], int i){
+    int ret;
+    uint64_t array_i = i / 64;
+    uint64_t bit_index = i % 64;
+    ret = array[array_i] & (SINGLE_BIT_MASK << bit_index);
+    return ret; 
+}
+
 //trova il primo libero e set a 1
 int get_and_set(uint64_t array[]){
     int ret;

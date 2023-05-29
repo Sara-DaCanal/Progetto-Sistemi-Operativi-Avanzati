@@ -9,6 +9,7 @@
     #include <linux/fs.h>
     #include <linux/rculist.h>
     #include <linux/slab.h>
+    #include <linux/version.h>
     #include "umsg.h"
 
     #define MOD_NAME "USER MESSAGE FS"
@@ -17,12 +18,18 @@
     #define SB_BLOCK_NUMBER 0
     #define INODE_BLOCK_NUMBER 1
     #define UMSG_FS_ROOT_INODE_NUM 10
+
+    #ifndef NBLOCKS 
+        #define NBLOCKS 10
+    #endif
+    #if NBLOCKS > 500
+        NBLOCKS = 500
+    #endif
    
     extern int single_mount;
 
     //struct del blocco in memoria
     struct umsg_fs_block_info{
-        uint64_t data_lenght;
         uint64_t clock;
         int id;
         struct list_head list;
@@ -49,5 +56,6 @@
     extern int init_bitmask(uint64_t[], uint64_t);
     extern int set_id_bit(uint64_t[], uint64_t);
     extern int reset_id_bit(uint64_t[], uint64_t);
+    extern int check_bit(uint64_t[], int);
     extern int get_and_set(uint64_t[]);
 #endif

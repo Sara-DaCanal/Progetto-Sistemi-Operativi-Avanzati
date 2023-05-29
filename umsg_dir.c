@@ -19,7 +19,7 @@ static int umsg_fs_iterate(struct file *file, struct dir_context* ctx) {
 
         if (ctx->pos == 0){
  //             printk("%s: we are inside readdir with ctx->pos set to %lld", MOD_NAME, ctx->pos);
-                if(!dir_emit(ctx,".", FILENAME_MAXLEN, UMSG_FS_ROOT_INODE_NUM, DT_UNKNOWN)){
+                if(!dir_emit(ctx,".", 1, UMSG_FS_ROOT_INODE_NUM, DT_UNKNOWN)){
                         return 0;
                 }
                 else{
@@ -31,7 +31,7 @@ static int umsg_fs_iterate(struct file *file, struct dir_context* ctx) {
         if (ctx->pos == 1){
   //            printk("%s: we are inside readdir with ctx->pos set to %lld", MOD_NAME, ctx->pos);
                 //here the inode number does not care
-                if(!dir_emit(ctx,"..", FILENAME_MAXLEN, 1, DT_UNKNOWN)){
+                if(!dir_emit(ctx,"..", 2, 1, DT_UNKNOWN)){
                         return 0;
                 }
                 else{
@@ -41,7 +41,7 @@ static int umsg_fs_iterate(struct file *file, struct dir_context* ctx) {
         }
         if (ctx->pos == 2){
    //           printk("%s: we are inside readdir with ctx->pos set to %lld", MOD_NAME, ctx->pos);
-                if(!dir_emit(ctx, FILE_NAME, FILENAME_MAXLEN, UMSG_FS_FILE_INODE_NUM, DT_UNKNOWN)){
+                if(!dir_emit(ctx, FILE_NAME, strlen(FILE_NAME), UMSG_FS_FILE_INODE_NUM, DT_UNKNOWN)){
                         return 0;
                 }
                 else{

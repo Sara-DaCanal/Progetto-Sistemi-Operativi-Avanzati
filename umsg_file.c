@@ -47,9 +47,8 @@ ssize_t umsg_fs_read(struct file * filp, char __user * buf, size_t len, loff_t *
     copied = 0; //lunghezza di byte copiati sul file
     rcu_read_lock();
     list_for_each_entry_rcu(blk, &(md->blk), list){
-        if(copied + blk->data_lenght > len) break;
         if(blk->clock > clock){
-            if(blk->clock > max_clock) max_clock = blk->clock;
+            
             zero = false;
             bh = (struct buffer_head *)sb_bread(my_sb, blk->id);
             printk("Ho letto il buffer per il nodo %d\n", blk->id);
@@ -58,6 +57,11 @@ ssize_t umsg_fs_read(struct file * filp, char __user * buf, size_t len, loff_t *
                 return -EIO;
             }
             my_data = (struct umsg_fs_blockdata *)bh->b_data;
+            if(copied + my_data->md.data_lenght > len){
+                brelse(bh);
+                break;
+            }
+            if(blk->clock > max_clock) max_clock = blk->clock;
             strncpy(my_file+copied, my_data->data, my_data->md.data_lenght);
             copied += my_data->md.data_lenght;
             strcpy(my_file+copied, "\n");

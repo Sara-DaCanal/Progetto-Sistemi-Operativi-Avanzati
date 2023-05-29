@@ -9,12 +9,21 @@
     #define UMSG_FS_FILE_INODE_NUM 1
     #define MAGIC 0x98765532
 
+    #ifndef NBLOCKS 
+        #define NBLOCKS 10
+    #endif
+    #if NBLOCKS > 500
+        NBLOCKS = 500
+    #endif
+    
+
     //definire campi necessari del superblocco
     struct __attribute__((packed)) umsg_fs_sb {
         uint64_t magic;
         uint64_t nblocks;
-
-        char padding[4096-(2*sizeof(uint64_t))];
+        uint64_t mask[NBLOCKS/64 + 1];
+        uint64_t order[NBLOCKS];
+        char padding[4096-((NBLOCKS/64 + 3 + NBLOCKS)*sizeof(uint64_t))];
     };
 
 
@@ -23,7 +32,6 @@
         bool valid;
         uint64_t data_lenght;
         int id;
-        uint64_t timestamp;
     };
 
     //struct per ogni blocco

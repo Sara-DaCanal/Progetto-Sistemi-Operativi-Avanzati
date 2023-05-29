@@ -37,6 +37,9 @@ int main(int argc, char *argv[]){
     //set up superblock
     sb.magic = MAGIC;
     sb.nblocks = nblocks;
+    for(int i; i < NBLOCKS/64+1; i++){
+        sb.mask[i]=0;
+    }
 
     ret = write(fd, (char *)&sb, sizeof(sb));
 

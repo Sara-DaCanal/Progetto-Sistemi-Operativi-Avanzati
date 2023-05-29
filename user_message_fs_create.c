@@ -7,7 +7,6 @@
 #include <linux/time.h>
 #include <linux/buffer_head.h>
 #include <linux/types.h>
-#include <linux/version.h>
 #include "user_messages_fs.h"
 
 int single_mount; //variabile per evitare montaggi multipli
@@ -37,30 +36,33 @@ int umsg_fs_fill_super(struct super_block *sb, void *data, int silent){
     uint64_t magic;
     uint64_t nblocks;
     struct umsg_fs_info *metadata; 
-    struct umsg_fs_blockdata *blk_md;
     struct umsg_fs_block_info *prev;
     struct umsg_fs_block_info *tmp;
     int i;
+    uint64_t tmp_order[NBLOCKS];
 
     sb->s_magic = MAGIC;
 
     //ottieni device superblocco e controlla sia valido
     bh = sb_bread(sb, SB_BLOCK_NUMBER);
+    printk("Ho letto il superblocco\n");
     if(bh == NULL){
         return -EIO;
     }
     sb_dev = (struct umsg_fs_sb *)bh->b_data;
+    printk("dati del superblocco letti\n");
     magic = sb_dev->magic;
     nblocks = sb_dev->nblocks;
-    brelse(bh);
 
     if(magic != sb->s_magic){
+        brelse(bh);
         return -EBADF;
     }
     if(nblocks > NBLOCKS){
+        brelse(bh);
         return -EBADF;
     }
-
+    printk("Init dei metadati del superblocco\n");
     //inizializzazione dei metadati in ram
     metadata = (struct umsg_fs_info *)kzalloc(nblocks * sizeof(struct umsg_fs_info), GFP_KERNEL);
     if(!metadata) return -ENOMEM;
@@ -69,7 +71,17 @@ int umsg_fs_fill_super(struct super_block *sb, void *data, int silent){
     metadata->nblocks = nblocks;
     metadata->max_timestamp = 0;
     mutex_init(&(metadata->write_mt));
+    printk("Init della bitmask\n");
     init_bitmask(metadata->mask, nblocks);
+    for(i=0; i < nblocks/64 + 1; i++ ){
+        metadata->mask[i] = sb_dev->mask[i];
+    }
+    for(i=0; i < nblocks; i++){
+        tmp_order[i] = sb_dev->order[i];
+    }
+    set_id_bit(metadata->mask, 0);
+    printk("Init bitmask finito\n");
+    brelse(bh);
     sb->s_fs_info = (void *)metadata;
 
 
@@ -106,23 +118,16 @@ int umsg_fs_fill_super(struct super_block *sb, void *data, int silent){
     sb->s_root->d_op = &umsg_fs_dentry_ops; //operazioni per la dentry
 
     unlock_new_inode(root_inode);
+    printk("Inode created successfully\n");
 
     //fill array di metadati
     for(i = 1; i < nblocks; i++){
-        printk("Inizio la fill del blocco: %d\n", i); 
-        bh = sb_bread(sb, i);
-        if(!bh){
-            return -EIO;
-        }
-        blk_md = (struct umsg_fs_blockdata *)(bh->b_data);
-        if (blk_md->md.valid){
-            printk("Il blocco è valido\n");
-            metadata = (struct umsg_fs_info*)sb->s_fs_info;
-            tmp = (struct umsg_fs_block_info *)kmalloc(sizeof(struct umsg_fs_block_info), GFP_KERNEL);
+        if(check_bit(metadata->mask, i) != 0){
+            printk("Inizio la fill del blocco: %d\n", i);
+            tmp = (struct umsg_fs_block_info *)kmalloc(sizeof(struct umsg_fs_block_info), GFP_KERNEL); 
             if(!tmp) return -ENOMEM;
-            tmp->data_lenght = blk_md->md.data_lenght;
-            tmp->clock = blk_md->md.timestamp;
-            tmp->id = blk_md->md.id;
+            tmp->clock = tmp_order[i];
+            tmp->id = i;
             printk("Il blocco ha ordine: %lld\n", tmp->clock);
             
             if(!list_first_or_null_rcu(&(metadata->blk), struct umsg_fs_block_info, list)){
@@ -144,7 +149,6 @@ int umsg_fs_fill_super(struct super_block *sb, void *data, int silent){
             if(tmp->clock > metadata->max_timestamp) metadata->max_timestamp = tmp->clock;
             set_id_bit(metadata->mask, tmp->id);
         }
-        brelse(bh);
     }
     general_sb = sb;
     return 0;
@@ -160,7 +164,6 @@ struct dentry *umsg_fs_mount(struct file_system_type *fs_type, int flags, const 
    if(!ret1) return ERR_PTR(-EBUSY);
     //montare block device generico e chiamare fill superblocco
     ret = mount_bdev(fs_type, flags, dev_name, data, umsg_fs_fill_super);
-
     if (unlikely(IS_ERR(ret))){
         printk("%s: error while mounting\n", MOD_NAME);
     }

@@ -1,12 +1,12 @@
 obj-m += user_message_fs.o
 user_message_fs-objs += user_message_fs_create.o umsg_file.o syscall_table_searcher.o umsg_block.o bitmask.o umsg_dir.o
-EXTRA_CFLAGS:= -D NBLOCKS=10 -D SYNC
+EXTRA_CFLAGS:= -DNBLOCKS=10 -D SYNC
 
 A = $(shell cat /sys/module/the_usctm/parameters/sys_call_table_address)
 B = $(shell cat /sys/module/the_usctm/parameters/free_entries)
 
 all:
-	gcc create_umsg_fs.c -o create_umsg_fs
+	gcc create_umsg_fs.c -o create_umsg_fs -DNBLOCKS=10
 	gcc my_client.c -o my_client
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
 
